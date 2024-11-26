@@ -50,7 +50,10 @@
 
     <!-- Flashcard View -->
     <div v-if="flashcardMode" class="flashcard text-center p-4 shadow bg-light rounded">
-      <h2 class="mb-4 text-primary">Flashcard Mode: {{ currentGroup.name }}</h2>
+      <h2 class="mb-4 text-primary">
+        {{ currentGroup.name }}: {{currentWordIndex+1}}/ {{ shuffledWords.length }} 
+        <button class="ms-3 btn btn-danger" @click="exitFlashcards">Exit</button>
+      </h2>
       <div class="display-4 mb-4">
         {{ flashcardModeSetting === 'english' ? currentWord.jp : (showTranslation ? currentWord.jp : '???') }}
       </div>
@@ -58,9 +61,12 @@
         {{ flashcardModeSetting === 'english' ? (showTranslation ? currentWord.en : '???') : currentWord.en }}
       </div>
       <div>
-        <button class="btn btn-success me-2" @click="nextWord">Next</button>
-        <button class="btn btn-secondary me-2" @click="toggleTranslation">Toggle Visibility</button>
-        <button class="btn btn-danger" @click="exitFlashcards">Exit</button>
+        <button class="btn btn-primary me-2" @click="backWord" :disabled="currentWordIndex === 0">Back</button>
+        <button class="btn btn-secondary me-2" @click="toggleTranslation" :style="{ opacity: showTranslation ? 1 : 0.4 }">Toggle</button>
+        <button class="btn btn-warning me-2" @click="this.currentWord.flag = !this.currentWord.flag" :style="{ opacity: currentWord.flag ? 1 : 0.4 }">Flag</button>
+        <button v-if="currentWordIndex !== shuffledWords.length -1" class="btn btn-success me-2" @click="nextWord">Next</button>
+        <button v-else class="btn btn-danger me-2" @click="finishRound">Finish</button>
+        
       </div>
     </div>
 
@@ -151,10 +157,35 @@ export default {
         this.showTranslation = false;
       }
     },
+    backWord() {
+      if (this.shuffledWords.length > 0) {
+        this.currentWordIndex =
+          (this.currentWordIndex - 1) % this.shuffledWords.length;
+        this.showTranslation = false;
+      }
+    },
 
     toggleTranslation() {
       this.showTranslation = !this.showTranslation;
     },
+
+    finishRound() {
+      // Filter flagged words from shuffledWords
+      const flaggedWords = this.shuffledWords.filter(word => word.flag);
+
+      if (flaggedWords.length === 0) {
+        // Exit if no flagged words are left
+        
+        return this.exitFlashcards();
+      }
+
+      // Shuffle the flagged words and reset state
+      this.shuffledWords = this.shuffleArray(flaggedWords);
+      this.currentWordIndex = 0;
+      this.showTranslation = false;
+    },
+
+
 
     exitFlashcards() {
       this.flashcardMode = false;
