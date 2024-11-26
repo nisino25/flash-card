@@ -1,12 +1,38 @@
 <template>
   <div class="container mt-4">
     <h1 class="text-center mb-4">Google Sheets Flashcards</h1>
-    <!-- <div class="text-center mb-4">
-      <button class="btn btn-primary" @click="fetchData">Fetch Data</button>
-    </div> -->
+
+    <!-- Toggle for Translation Mode -->
+    <div v-if="groups.length > 0" class="mb-4 text-center">
+      <label class="form-check-label me-2">Show:</label>
+      <div class="form-check form-check-inline">
+        <input
+          type="radio"
+          id="showJapanese"
+          value="japanese"
+          v-model="flashcardModeSetting"
+          class="form-check-input"
+        />
+        <label for="showJapanese" class="form-check-label">Japanese</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input
+          type="radio"
+          id="showEnglish"
+          value="english"
+          v-model="flashcardModeSetting"
+          class="form-check-input"
+        />
+        <label for="showEnglish" class="form-check-label">English</label>
+      </div>
+    </div>
 
     <div v-if="groups.length > 0" class="row">
-      <div v-for="(group, index) in groups" :key="index" class="col-6 mb-4">
+      <div
+        v-for="(group, index) in groups"
+        :key="index"
+        class="col-6 mb-4"
+      >
         <div class="card shadow" @click="startFlashcards(group)" style="cursor: pointer;">
           <div class="card-body">
             <h5 class="card-title text-center">
@@ -21,24 +47,23 @@
       <p class="text-muted">No data loaded yet. Click the button to fetch data!</p>
     </div>
 
-
     <!-- Flashcard View -->
     <div v-if="flashcardMode" class="flashcard text-center p-4 shadow bg-light rounded">
       <h2 class="mb-4 text-primary">Flashcard Mode: {{ currentGroup.name }}</h2>
       <div class="display-4 mb-4">
-        {{ currentWord.jp }}
+        {{ flashcardModeSetting === 'english' ? currentWord.jp : (showTranslation ? currentWord.jp : '???') }}
       </div>
       <div class="h5 mb-4">
-        {{ showTranslation ? currentWord.en : "???" }}
+        {{ flashcardModeSetting === 'english' ? (showTranslation ? currentWord.en : '???') : currentWord.en }}
       </div>
       <div>
         <button class="btn btn-success me-2" @click="nextWord">Next</button>
-        <button class="btn btn-secondary me-2" @click="toggleTranslation">Toggle Translation</button>
+        <button class="btn btn-secondary me-2" @click="toggleTranslation">Toggle Visibility</button>
         <button class="btn btn-danger" @click="exitFlashcards">Exit</button>
       </div>
     </div>
-
   </div>
+
 </template>
 
 
@@ -48,12 +73,13 @@ export default {
   data() {
     return {
       groups: [], // Stores processed group data
-      apiKey: "AIzaSyC1jxmY8gKcMDMbgyYBb1rd72Jq_QHVhYg", // Replace with your API Key
-      sheetId: "1imzTupVh0DnKkKpeBXzZgJFC6PIZIE83YFLSUqXp0YE", // Replace with your Sheet ID
+      apiKey: process.env.VUE_APP_API_KEY,
+      sheetId: process.env.VUE_APP_SHEET_ID,
       flashcardMode: false, // Toggles flashcard mode
       currentGroup: null, // Current group in flashcard mode
       currentWordIndex: 0, // Index of the current word
       showTranslation: false, // Whether to show the translation
+      flashcardModeSetting: "english", // Default to hiding Japanese
     };
   },
   computed: {
@@ -86,19 +112,15 @@ export default {
 
       for (let row of values) {
         if (row[0] && row[1]) {
-          // If all columns have data, it's a word entry
           group.words.push({ jp: row[0], en: row[1] });
-        } else if (row[0] && !row[1] && !row[2]) {
-          // If only the first column has data, it's a new group
-          if (group.name) groups.push(group); // Save previous group
-          group = { name: row[0], words: [] }; // Start new group
+        } else if (row[0] && !row[1]) {
+          if (group.name) groups.push(group);
+          group = { name: row[0], words: [] };
         }
       }
 
-      if (group.name) groups.push(group); // Add last group
+      if (group.name) groups.push(group);
       this.groups = groups;
-
-      console.log("Processed Groups:", this.groups);
     },
     startFlashcards(group) {
       this.flashcardMode = true;
@@ -107,11 +129,10 @@ export default {
       this.showTranslation = false;
     },
     nextWord() {
-      console.log('here');
       if (this.currentGroup && this.currentGroup.words.length > 0) {
         this.currentWordIndex =
           (this.currentWordIndex + 1) % this.currentGroup.words.length;
-        this.showTranslation = false; // Hide translation for the next word
+        this.showTranslation = false;
       }
     },
     toggleTranslation() {
@@ -124,10 +145,13 @@ export default {
       this.showTranslation = false;
     },
   },
-  mounted(){
-    console.clear()
+  mounted() {
+    console.log("API Key:", process.env.VUE_APP_API_KEY);
+    console.log("Sheet ID:", process.env.VUE_APP_SHEET_ID);
+
     this.fetchData();
-  }
+  },
 };
+
 
 </script>
