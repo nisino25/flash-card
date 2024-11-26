@@ -27,23 +27,24 @@
       </div>
     </div>
 
-    <div v-if="groups.length > 0" class="row">
-      <div
-        v-for="(group, index) in groups"
-        :key="index"
-        class="col-6 mb-4"
-      >
-        <div class="card shadow" @click="startFlashcards(group)" style="cursor: pointer;">
-          <div class="card-body">
-            <h5 class="card-title text-center">
-              {{ group.name }} <small class="text-muted">({{ group.words.length }})</small>
-            </h5>
-          </div>
-        </div>
+    <div v-if="groups.length > 0 && !flashcardMode" class="row gx-2 gy-2">
+  <div
+    v-for="(group, index) in groups"
+    :key="index"
+    class="col-6"
+  >
+    <div class="card shadow" @click="startFlashcards(group)" style="cursor: pointer;">
+      <div class="card-body">
+        <h5 class="card-title text-center">
+          {{ group.name }} <small class="text-muted">({{ group.words.length }})</small>
+        </h5>
       </div>
     </div>
+  </div>
+</div>
 
-    <div v-else class="text-center">
+
+    <div v-if="groups?.length == 0" class="text-center">
       <p class="text-muted">No data loaded yet. Click the button to fetch data!</p>
     </div>
 
@@ -62,6 +63,7 @@
         <button class="btn btn-danger" @click="exitFlashcards">Exit</button>
       </div>
     </div>
+
   </div>
 
 </template>
@@ -80,14 +82,15 @@ export default {
       currentWordIndex: 0, // Index of the current word
       showTranslation: false, // Whether to show the translation
       flashcardModeSetting: "english", // Default to hiding Japanese
+      shuffledWords: [],
     };
   },
   computed: {
     currentWord() {
-      if (!this.currentGroup || this.currentGroup.words.length === 0) {
+      if (!this.shuffledWords || this.shuffledWords.length === 0) {
         return { jp: "No words", en: "No words" };
       }
-      return this.currentGroup.words[this.currentWordIndex];
+      return this.shuffledWords[this.currentWordIndex];
     },
   },
   methods: {
@@ -122,35 +125,49 @@ export default {
       if (group.name) groups.push(group);
       this.groups = groups;
     },
+    shuffleArray(array) {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    },
+
     startFlashcards(group) {
+      // Shuffle the group's words and store them in shuffledWords
+      this.shuffledWords = this.shuffleArray(group.words);
+
       this.flashcardMode = true;
       this.currentGroup = group;
       this.currentWordIndex = 0;
       this.showTranslation = false;
     },
+
     nextWord() {
-      if (this.currentGroup && this.currentGroup.words.length > 0) {
+      if (this.shuffledWords.length > 0) {
         this.currentWordIndex =
-          (this.currentWordIndex + 1) % this.currentGroup.words.length;
+          (this.currentWordIndex + 1) % this.shuffledWords.length;
         this.showTranslation = false;
       }
     },
+
     toggleTranslation() {
       this.showTranslation = !this.showTranslation;
     },
+
     exitFlashcards() {
       this.flashcardMode = false;
       this.currentGroup = null;
       this.currentWordIndex = 0;
       this.showTranslation = false;
+      this.shuffledWords = [];
     },
   },
   mounted() {
-    console.log("API Key:", process.env.VUE_APP_API_KEY);
-    console.log("Sheet ID:", process.env.VUE_APP_SHEET_ID);
-
     this.fetchData();
   },
+
 };
 
 
