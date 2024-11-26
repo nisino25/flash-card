@@ -172,3 +172,17 @@ export default {
 
 
 </script>
+
+<style>
+html, body {
+  height: 100%; /* Ensures html and body take the full height */
+  margin: 0; /* Removes default margin */
+  overflow: hidden; /* Prevents scrolling or overflow */
+}
+
+#app {
+  height: 100vh; /* Ensures the app takes the full viewport height */
+  display: flex; /* Optional: For centering or flex layouts */
+  flex-direction: column; /* Optional: Ensures children stack vertically */
+}
+</style>
