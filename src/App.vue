@@ -25,25 +25,28 @@
         />
         <label for="showEnglish" class="form-check-label">EN</label>
       </div>
-      |&nbsp;
-      <div class="form-check form-check-inline">
-        <input
-          type="radio"
-          :value="true"
-          v-model="displayingAll"
-          class="form-check-input"
-        />
-        <label for="showJapanese" class="form-check-label">All</label>
-      </div>
-      <div class="form-check form-check-inline">
-        <input
-          type="radio"
-          :value="false"
-          v-model="displayingAll"
-          class="form-check-input"
-        />
-        <label for="showEnglish" class="form-check-label">Marked only</label>
-      </div>
+      <template v-if="!flashcardMode">
+        |&nbsp;
+        <div class="form-check form-check-inline">
+          <input
+            type="radio"
+            :value="true"
+            v-model="displayingAll"
+            class="form-check-input"
+          />
+          <label for="showJapanese" class="form-check-label">All</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input
+            type="radio"
+            :value="false"
+            v-model="displayingAll"
+            class="form-check-input"
+          />
+          <label for="showEnglish" class="form-check-label">Marked only</label>
+        </div>
+      </template>
+      
       
     </div>
 
@@ -87,7 +90,7 @@
         <button class="btn btn-primary me-2" @click="backWord" :disabled="currentWordIndex === 0">
           <i class="fa-solid fa-left-long"></i>
         </button>
-        
+
         <button 
           class="btn btn-secondary me-2" 
           @click="showTranslation = !showTranslation"
@@ -225,28 +228,23 @@ export default {
 
     startFlashcards(group) {
       // Shuffle the group's words and store them in shuffledWords
-      this.shuffledWords = this.shuffleArray(group.words);
+      // this.shuffledWords = this.shuffleArray(group.words);
+
+      this.shuffledWords = this.shuffleArray(
+        this.displayingAll ? group.words : group.words.filter(word => word.marked)
+      );
 
       this.flashcardMode = true;
       this.currentGroup = group;
       this.currentWordIndex = 0;
       this.showTranslation = false;
-
-      if(!this.displayingAll && !this.currentWord.marked) this.nextWord();
     },
 
     nextWord() {
-      console.log('trying');
-      if(this.currentWordIndex == this.shuffledWords.length -1){
-        this.finishRound()
-        return
-      }
       if (this.shuffledWords.length > 0) {
         this.currentWordIndex =
           (this.currentWordIndex + 1) % this.shuffledWords.length;
         this.showTranslation = false;
-
-        if(!this.displayingAll && !this.currentWord.marked) this.nextWord();
       }
     },
     backWord() {
