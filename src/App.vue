@@ -1,30 +1,50 @@
 <template>
   <div class="container mt-4">
     <h1 class="text-center mb-4">Google Sheets Flashcards</h1>
+    <!-- <button @click="authenticate">Authenticate</button>
+    <button @click="writeToSheet" :disabled="!accessToken">Write to Google Sheet</button>
+    <button @click="test">test</button> -->
 
     <!-- Toggle for Translation Mode -->
     <div v-if="groups.length > 0" class="mb-4 text-center">
-      <label class="form-check-label me-2">Show:</label>
       <div class="form-check form-check-inline">
         <input
           type="radio"
-          id="showJapanese"
           value="japanese"
           v-model="flashcardModeSetting"
           class="form-check-input"
         />
-        <label for="showJapanese" class="form-check-label">Japanese</label>
+        <label for="showJapanese" class="form-check-label">JA</label>
       </div>
       <div class="form-check form-check-inline">
         <input
           type="radio"
-          id="showEnglish"
           value="english"
           v-model="flashcardModeSetting"
           class="form-check-input"
         />
-        <label for="showEnglish" class="form-check-label">English</label>
+        <label for="showEnglish" class="form-check-label">EN</label>
       </div>
+      |&nbsp;
+      <div class="form-check form-check-inline">
+        <input
+          type="radio"
+          :value="true"
+          v-model="displayingAll"
+          class="form-check-input"
+        />
+        <label for="showJapanese" class="form-check-label">All</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input
+          type="radio"
+          :value="false"
+          v-model="displayingAll"
+          class="form-check-input"
+        />
+        <label for="showEnglish" class="form-check-label">Marked only</label>
+      </div>
+      
     </div>
 
     <div v-if="groups.length > 0 && !flashcardMode" class="row gx-2 gy-2">
@@ -36,7 +56,10 @@
         <div class="card shadow" @click="startFlashcards(group)" style="cursor: pointer;">
           <div class="card-body">
             <h5 class="card-title text-center">
-              {{ group.name }} <small class="text-muted">({{ group.words.length }})</small>
+              {{ group.name }} 
+              <br>
+              
+              <small class="text-muted"> ({{ displayingAll ? group.words.length : `${group.words.length} &rarr; ${group.words.filter(word => word.marked).length}` }})</small>
             </h5>
           </div>
         </div>
@@ -64,24 +87,28 @@
         <button class="btn btn-primary me-2" @click="backWord" :disabled="currentWordIndex === 0">
           <i class="fa-solid fa-left-long"></i>
         </button>
-        <button class="btn btn-secondary me-2" @click="this.showTranslation = !this.showTranslation;" v-if="!showTranslation">
-          <i class="fa-solid fa-eye"></i>
+        
+        <button 
+          class="btn btn-secondary me-2" 
+          @click="showTranslation = !showTranslation"
+        >
+          <i :class="showTranslation ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
         </button>
-        <button class="btn btn-secondary me-2" @click="this.showTranslation = !this.showTranslation;" v-else>
-          <i class="fa-solid fa-eye-slash"></i>
+
+        <button 
+          class="btn btn-warning me-2" 
+          @click="currentWord.flag = !currentWord.flag"
+        >
+          <i :class="currentWord.flag ? 'fa-solid fa-flag' : 'fa-regular fa-flag'"></i>
         </button>
-        <button class="btn btn-warning me-2" @click="this.currentWord.flag = !this.currentWord.flag" v-if="currentWord.flag">
-          <i class="fa-solid fa-flag"></i>
+
+        <button 
+          class="btn btn-warning me-2" 
+          @click="toggleMark(currentWord)"
+        >
+          <i :class="currentWord.marked ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark'"></i>
         </button>
-        <button class="btn btn-warning me-2" @click="this.currentWord.flag = !this.currentWord.flag" v-else>
-          <i class="fa-regular fa-flag"></i>
-        </button>
-        <button class="btn btn-warning me-2" @click="toggleMark(currentWord)" v-if="currentWord.marked">
-          <i class="fa-solid fa-bookmark"></i>
-        </button>
-        <button class="btn btn-warning me-2" @click="toggleMark(currentWord)" v-else>
-          <i class="fa-regular fa-bookmark"></i>
-        </button>
+
         <button v-if="currentWordIndex !== shuffledWords.length -1" class="btn btn-success me-2" @click="nextWord">
           <i class="fa-solid fa-right-long"></i>
         </button>
@@ -97,6 +124,8 @@
 
 
 <script>
+/* global google */
+
 export default {
   data() {
     return {
@@ -109,6 +138,12 @@ export default {
       showTranslation: false, // Whether to show the translation
       flashcardModeSetting: "english", // Default to hiding Japanese
       shuffledWords: [],
+
+      clientId: "232299309498-qaemtu1hqjqgv96ei9g5ensimcb2gah8.apps.googleusercontent.com",
+      accessToken: null,
+
+      isAuthenticated: false,
+      displayingAll: true,
     };
   },
   computed: {
@@ -117,6 +152,15 @@ export default {
             return { jp: "No words", en: "No words" };
         }
         return this.shuffledWords[this.currentWordIndex];
+    },
+    filteredGroup() {
+      // Create a new array of groups where words are filtered to include only marked ones
+      return this.groups.map(group => {
+        return {
+          ...group,
+          words: group.words.filter(word => word.marked) // Include only marked words
+        };
+      }).filter(group => group.words.length > 0); // Remove groups with no marked words
     },
   },
   methods: {
@@ -187,13 +231,22 @@ export default {
       this.currentGroup = group;
       this.currentWordIndex = 0;
       this.showTranslation = false;
+
+      if(!this.displayingAll && !this.currentWord.marked) this.nextWord();
     },
 
     nextWord() {
+      console.log('trying');
+      if(this.currentWordIndex == this.shuffledWords.length -1){
+        this.finishRound()
+        return
+      }
       if (this.shuffledWords.length > 0) {
         this.currentWordIndex =
           (this.currentWordIndex + 1) % this.shuffledWords.length;
         this.showTranslation = false;
+
+        if(!this.displayingAll && !this.currentWord.marked) this.nextWord();
       }
     },
     backWord() {
@@ -229,10 +282,114 @@ export default {
       this.showTranslation = false;
       this.shuffledWords = [];
     },
+
+    async authenticate() {
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: this.clientId,
+    scope: "https://www.googleapis.com/auth/spreadsheets",
+    callback: (response) => {
+      if (response.access_token) {
+        this.accessToken = response.access_token;
+        console.log("Access Token:", this.accessToken);
+        alert("Authentication successful!");
+      } else {
+        console.error("Authentication failed:", response);
+        alert("Authentication failed.");
+      }
+    },
+  });
+
+  // Request an access token using a popup
+  tokenClient.requestAccessToken({
+    prompt: "consent", // Ensures the popup is used
+  });
+},
+    async writeToSheet() {
+      if (!this.accessToken) {
+        alert("Please authenticate first!");
+        return;
+      }
+
+      const range = "Sheet1!A1"; // Replace with your desired cell range
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+
+      const data = {
+        range: range,
+        majorDimension: "ROWS",
+        values: [["Test data from Vue 3"]], // Replace with your data
+      };
+
+      try {
+        const response = await fetch(url, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (response.ok) {
+          console.log("Data written successfully!");
+          alert("Data written to Google Sheet!");
+        } else {
+          const error = await response.json();
+          console.error("Error writing data:", error);
+          alert("Failed to write data. Check the console for details.");
+        }
+      } catch (error) {
+        console.error("Fetch error:", error);
+        alert("An error occurred while writing data.");
+      }
+    },
+    async test() {
+  if (!this.accessToken) {
+    alert("Please authenticate first!");
+    return;
+  }
+
+  const range = "Sheet1!B500"; // Target cell B500
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+
+  const data = {
+    range: range,
+    majorDimension: "ROWS",
+    values: [["This is a test from via API"]], // Test message
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.accessToken}`, // Use the access token
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (response.ok) {
+      console.log("Data written successfully to B500!");
+      alert("Data written successfully to Google Sheet (B500)!");
+    } else {
+      const error = await response.json();
+      console.error("Error writing data:", error);
+      alert("Failed to write data. Check the console for details.");
+    }
+  } catch (error) {
+    console.error("Fetch error:", error);
+    alert("An error occurred while writing data.");
+  }
+},
+
+
   },
   mounted() {
     console.clear()
     this.fetchData();
+
+    // this.authenticate();
+
+    // this.writingTest();
   },
 
 };
