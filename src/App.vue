@@ -6,6 +6,7 @@
     <button @click="test">test</button> -->
 
     <!-- Toggle for Translation Mode -->
+    <hr>
     <div v-if="groups.length > 0" class="mb-4 text-center">
       <div class="form-check form-check-inline">
         <input
@@ -127,7 +128,6 @@
 
 
 <script>
-/* global google */
 
 export default {
   data() {
@@ -141,12 +141,13 @@ export default {
       showTranslation: false, // Whether to show the translation
       flashcardModeSetting: "english", // Default to hiding Japanese
       shuffledWords: [],
-
-      clientId: "232299309498-qaemtu1hqjqgv96ei9g5ensimcb2gah8.apps.googleusercontent.com",
-      accessToken: null,
-
-      isAuthenticated: false,
       displayingAll: true,
+
+      targetCell: "A555", // Default target cell
+      cellValue: "Value from Vue", // Default value
+      responseMessage: "", // To store the API response
+
+      // https://script.google.com/macros/s/AKfycbybFZFfo5EGapKy7svTnx5_uQ6cov5ZlfEY5oV_qauaoFJ4lXJ5JdxBih_4jclJK-CWBQ/exec
     };
   },
   computed: {
@@ -271,6 +272,36 @@ export default {
       this.showTranslation = false;
     },
 
+    toggleMark(word) {
+      word.marked = !word.marked;
+      // Build the API URL with English and Japanese words as parameters
+      const baseUrl =
+        "https://script.google.com/macros/s/AKfycbyd8zBsc-rwkxVIKNiOKDbkqns-FEgeRlgt89mpp9vIWVrNbRWDgUpe-uvDOx9v6wh__w/exec";
+      const url = `${baseUrl}?callback=jsonpCallback&english=${encodeURIComponent(
+        word.en
+      )}&japanese=${encodeURIComponent(word.jp)}`;
+
+      // Define the callback function globally
+      window.jsonpCallback = (data) => {
+        console.log("API Response:", data);
+      };
+
+      // Dynamically add a <script> tag to call the JSONP API
+      const script = document.createElement("script");
+      script.src = url; // Set the API URL
+      script.async = true; // Load asynchronously
+      document.body.appendChild(script);
+
+      // Clean up the <script> tag after the request
+      script.onload = () => {
+        document.body.removeChild(script); // Remove the script tag
+      };
+      script.onerror = () => {
+        console.error("JSONP request failed.");
+      };
+    },
+
+
 
 
     exitFlashcards() {
@@ -281,27 +312,6 @@ export default {
       this.shuffledWords = [];
     },
 
-    async authenticate() {
-  const tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: this.clientId,
-    scope: "https://www.googleapis.com/auth/spreadsheets",
-    callback: (response) => {
-      if (response.access_token) {
-        this.accessToken = response.access_token;
-        console.log("Access Token:", this.accessToken);
-        alert("Authentication successful!");
-      } else {
-        console.error("Authentication failed:", response);
-        alert("Authentication failed.");
-      }
-    },
-  });
-
-  // Request an access token using a popup
-  tokenClient.requestAccessToken({
-    prompt: "consent", // Ensures the popup is used
-  });
-},
     async writeToSheet() {
       if (!this.accessToken) {
         alert("Please authenticate first!");
@@ -340,52 +350,43 @@ export default {
         alert("An error occurred while writing data.");
       }
     },
-    async test() {
-  if (!this.accessToken) {
-    alert("Please authenticate first!");
-    return;
-  }
+    callApi() {
+      // Build the API URL with parameters
+      const baseUrl =
+        "https://script.google.com/macros/s/AKfycbybFZFfo5EGapKy7svTnx5_uQ6cov5ZlfEY5oV_qauaoFJ4lXJ5JdxBih_4jclJK-CWBQ/exec";
+      const url = `${baseUrl}?callback=jsonpCallback&target=${encodeURIComponent(
+        this.targetCell
+      )}&value=${encodeURIComponent(this.cellValue)}`;
 
-  const range = "Sheet1!B500"; // Target cell B500
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
+      // Define the callback function globally
+      window.jsonpCallback = (data) => {
+        console.log("API Response:", data);
+        this.responseMessage = JSON.stringify(data, null, 2); // Store the response
+      };
 
-  const data = {
-    range: range,
-    majorDimension: "ROWS",
-    values: [["This is a test from via API"]], // Test message
-  };
+      // Dynamically add a <script> tag to call the JSONP API
+      const script = document.createElement("script");
+      script.src = url; // Set the API URL
+      script.async = true; // Load asynchronously
+      document.body.appendChild(script);
 
-  try {
-    const response = await fetch(url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.accessToken}`, // Use the access token
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (response.ok) {
-      console.log("Data written successfully to B500!");
-      alert("Data written successfully to Google Sheet (B500)!");
-    } else {
-      const error = await response.json();
-      console.error("Error writing data:", error);
-      alert("Failed to write data. Check the console for details.");
-    }
-  } catch (error) {
-    console.error("Fetch error:", error);
-    alert("An error occurred while writing data.");
-  }
-},
-
+      // Clean up the <script> tag after the request
+      script.onload = () => {
+        document.body.removeChild(script); // Remove the script tag
+      };
+      script.onerror = () => {
+        console.error("JSONP request failed.");
+        this.responseMessage = "Error loading the API.";
+        document.body.removeChild(script);
+      };
+    },
 
   },
   mounted() {
     console.clear()
     this.fetchData();
 
-    // this.authenticate();
+    // this.test()
 
     // this.writingTest();
   },
