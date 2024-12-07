@@ -8,25 +8,25 @@
     <!-- Toggle for Translation Mode -->
     <hr>
     <div v-if="groups.length > 0" class="mb-4 text-center">
-      <div class="form-check form-check-inline">
-        <input
-          type="radio"
-          value="japanese"
-          v-model="flashcardModeSetting"
-          class="form-check-input"
-        />
-        <label for="showJapanese" class="form-check-label">JA</label>
-      </div>
-      <div class="form-check form-check-inline">
-        <input
-          type="radio"
-          value="english"
-          v-model="flashcardModeSetting"
-          class="form-check-input"
-        />
-        <label for="showEnglish" class="form-check-label">EN</label>
-      </div>
       <template v-if="!flashcardMode">
+        <div class="form-check form-check-inline">
+          <input
+            type="radio"
+            value="japanese"
+            v-model="flashcardModeSetting"
+            class="form-check-input"
+          />
+          <label for="showJapanese" class="form-check-label">JA</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input
+            type="radio"
+            value="english"
+            v-model="flashcardModeSetting"
+            class="form-check-input"
+          />
+          <label for="showEnglish" class="form-check-label">EN</label>
+        </div>
         |&nbsp;
         <div class="form-check form-check-inline">
           <input
@@ -77,15 +77,18 @@
 
     <!-- Flashcard View -->
     <div v-if="flashcardMode" class="flashcard text-center p-4 shadow bg-light rounded">
-      <h2 class="mb-4 text-primary">
+      <h3 class="mb-4 text-primary">
         {{ currentGroup.name }}: {{currentWordIndex+1}}/ {{ shuffledWords.length }} 
         <button class="ms-3 btn btn-danger" @click="exitFlashcards">Exit</button>
-      </h2>
-      <div class="display-4 mb-4">
+      </h3>
+      <div class="display-6 mb-6">
         {{ flashcardModeSetting === 'english' ? currentWord.jp : (showTranslation ? currentWord.jp : '???') }}
       </div>
       <div class="h5 mb-4">
         {{ flashcardModeSetting === 'english' ? (showTranslation ? currentWord.en : '???') : currentWord.en }}
+      </div>
+      <div class="h6 mb-4 text-secondary" v-if="currentWord.example">
+        {{currentWord.example}}
       </div>
       <div>
         <button class="btn btn-primary me-2" @click="backWord" :disabled="currentWordIndex === 0">
@@ -195,6 +198,7 @@ export default {
                     jp: row[0],
                     en: row[1],
                     marked: row[4] == 1,
+                    example: row[6],
                 });
             }
         };
