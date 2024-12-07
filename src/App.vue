@@ -1,12 +1,9 @@
 <template>
   <div class="container mt-4">
     <h1 class="text-center mb-4">Google Sheets Flashcards</h1>
-    <!-- <button @click="authenticate">Authenticate</button>
-    <button @click="writeToSheet" :disabled="!accessToken">Write to Google Sheet</button>
-    <button @click="test">test</button> -->
-
-    <!-- Toggle for Translation Mode -->
     <hr>
+
+    <!-- toogle tool -->
     <div v-if="groups.length > 0" class="mb-4 text-center">
       <template v-if="!flashcardMode">
         <div class="form-check form-check-inline">
@@ -27,7 +24,7 @@
           />
           <label for="showEnglish" class="form-check-label">EN</label>
         </div>
-        |&nbsp;
+        |
         <div class="form-check form-check-inline">
           <input
             type="radio"
@@ -51,6 +48,7 @@
       
     </div>
 
+    <!-- group looping -->
     <div v-if="groups.length > 0 && !flashcardMode" class="row gx-2 gy-2">
       <div
         v-for="(group, index) in groups"
@@ -59,12 +57,13 @@
       >
         <div class="card shadow" @click="startFlashcards(group)" style="cursor: pointer;">
           <div class="card-body">
-            <h5 class="card-title text-center">
-              {{ group.name }} 
-              <br>
-              
-              <small class="text-muted"> ({{ displayingAll ? group.words.length : `${group.words.length} &rarr; ${group.words.filter(word => word.marked).length}` }})</small>
-            </h5>
+            <h5 class="card-title text-center">{{ group.name }}</h5>
+            <hr>
+            <section class="flex-container" style="width: 80%; margin: auto;">
+              <small><i class="fa-solid fa-list"></i> <strong>{{ group.words.length }}</strong></small>
+              <small><i class="fa-solid fa-bookmark"></i> <strong>{{ group.words.filter(word => word.marked)?.length }}</strong></small>
+              <small><i class="fa-regular fa-clock"></i> <strong>{{ group.counter }}</strong></small>
+            </section>
           </div>
         </div>
       </div>
@@ -77,19 +76,30 @@
 
     <!-- Flashcard View -->
     <div v-if="flashcardMode" class="flashcard text-center p-4 shadow bg-light rounded">
-      <h3 class="mb-4 text-primary">
-        {{ currentGroup.name }}: {{currentWordIndex+1}}/ {{ shuffledWords.length }} 
-        <button class="ms-3 btn btn-danger" @click="exitFlashcards">Exit</button>
-      </h3>
-      <div class="display-6 mb-6">
-        {{ flashcardModeSetting === 'english' ? currentWord.jp : (showTranslation ? currentWord.jp : '???') }}
+      <div class="flex-container">
+        <span class="badge bg-warning text-dark p-2">
+          <i class="fa-solid fa-flag"></i> x {{ currentWord.counter }}
+        </span>
+        <h3 class="mb-4 text-primary">
+          {{ currentGroup.name }}: {{currentWordIndex+1}}/ {{ shuffledWords.length }} 
+        </h3>
+        <button class="ms-3 btn btn-danger" @click="exitFlashcards"><i class="fas fa-sign-out"></i></button>
       </div>
-      <div class="h5 mb-4">
-        {{ flashcardModeSetting === 'english' ? (showTranslation ? currentWord.en : '???') : currentWord.en }}
+
+      <!-- main word  -->
+      <div>
+        <div class="display-6 mb-6">
+          {{ flashcardModeSetting === 'english' ? currentWord.jp : (showTranslation ? currentWord.jp : '???') }}
+        </div>
+        <div class="h5 mb-4">
+          {{ flashcardModeSetting === 'english' ? (showTranslation ? currentWord.en : '???') : currentWord.en }}
+        </div>
+        <div class="h6 mb-4 text-secondary" v-if="currentWord.example">
+          {{currentWord.example}}
+        </div>
       </div>
-      <div class="h6 mb-4 text-secondary" v-if="currentWord.example">
-        {{currentWord.example}}
-      </div>
+
+      <!-- buttons  -->
       <div>
         <button class="btn btn-primary me-2" @click="backWord" :disabled="currentWordIndex === 0">
           <i class="fa-solid fa-left-long"></i>
@@ -104,7 +114,7 @@
 
         <button 
           class="btn btn-warning me-2" 
-          @click="currentWord.flag = !currentWord.flag"
+          @click="toggleFlag(currentWord)"
         >
           <i :class="currentWord.flag ? 'fa-solid fa-flag' : 'fa-regular fa-flag'"></i>
         </button>
@@ -149,6 +159,8 @@ export default {
       targetCell: "A555", // Default target cell
       cellValue: "Value from Vue", // Default value
       responseMessage: "", // To store the API response
+
+      isFirstRound: false,
 
       // https://script.google.com/macros/s/AKfycbybFZFfo5EGapKy7svTnx5_uQ6cov5ZlfEY5oV_qauaoFJ4lXJ5JdxBih_4jclJK-CWBQ/exec
     };
@@ -198,7 +210,9 @@ export default {
                     jp: row[0],
                     en: row[1],
                     marked: row[4] == 1,
+                    counter: row[6] || 0,
                     example: row[7],
+                    
                 });
             }
         };
@@ -207,13 +221,12 @@ export default {
             if (row[5] == 1) {
                 addWordToGroup(row, unchecked);
                 continue;
-            }
-
-            if (row[0] && row[1]) {
-                addWordToGroup(row, group);
-            } else if (row[0] && !row[1]) {
+            }else if (row[0] && row[1] == 'groupName') {
                 if (group.name) groups.push(group);
-                group = { name: row[0], words: [] };
+                group = { name: row[0], words: [], counter: row[6] || 0 };
+                continue;
+            } if (row[0] && row[1]) {
+                addWordToGroup(row, group);
             }
         }
 
@@ -223,7 +236,9 @@ export default {
         this.groups = groups;
     },
     shuffleArray(array) {
-      const shuffled = [...array];
+      // const shuffled = [...array];
+      const shuffled = array.map(item => ({ ...item, flag: false }));
+
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
@@ -232,6 +247,7 @@ export default {
     },
 
     startFlashcards(group) {
+      this.isFirstRound = true
       // Shuffle the group's words and store them in shuffledWords
       // this.shuffledWords = this.shuffleArray(group.words);
 
@@ -261,6 +277,11 @@ export default {
     },
 
     finishRound() {
+      if(this.isFirstRound){
+        this.currentGroup.counter++
+        this.incrementWord({jp: this.currentGroup.name, en: 'groupName'})
+      }
+      this.isFirstRound = false
       // Filter flagged words from shuffledWords
       const flaggedWords = this.shuffledWords.filter(word => word.flag);
 
@@ -278,16 +299,18 @@ export default {
 
     toggleMark(word) {
       word.marked = !word.marked;
-      // Build the API URL with English and Japanese words as parameters
+      if (word.marked) this.toggleFlag(word)
+
+      // Build the API URL with the action parameter for toggleMark
       const baseUrl =
-        "https://script.google.com/macros/s/AKfycbyd8zBsc-rwkxVIKNiOKDbkqns-FEgeRlgt89mpp9vIWVrNbRWDgUpe-uvDOx9v6wh__w/exec";
-      const url = `${baseUrl}?callback=jsonpCallback&english=${encodeURIComponent(
+        "https://script.google.com/macros/s/AKfycbyBcvDCo3fYslOGZeJLoDlL8TayF1YwBAyNPh-xpLp7YsBwF3dvlOUCjxSVO7hiFfTBSA/exec";
+      const url = `${baseUrl}?callback=jsonpCallback&action=toggleMark&english=${encodeURIComponent(
         word.en
       )}&japanese=${encodeURIComponent(word.jp)}`;
 
       // Define the callback function globally
       window.jsonpCallback = (data) => {
-        console.log("API Response:", data);
+        console.log("API Response (toggleMark):", data);
       };
 
       // Dynamically add a <script> tag to call the JSONP API
@@ -300,14 +323,38 @@ export default {
       script.onload = () => {
         document.body.removeChild(script); // Remove the script tag
       };
-      script.onerror = () => {
-        console.error("JSONP request failed.");
-      };
     },
 
+    toggleFlag(word){
+      word.flag = !word.flag
+      if(!word.flag) return
+      this.incrementWord(word)
+    },
 
+    incrementWord(word) {
+      console.log(word);
+      word.counter++
+      // Build the API URL with the action parameter for increment
+      const baseUrl =
+        "https://script.google.com/macros/s/AKfycbyBcvDCo3fYslOGZeJLoDlL8TayF1YwBAyNPh-xpLp7YsBwF3dvlOUCjxSVO7hiFfTBSA/exec";
+      const url = `${baseUrl}?callback=jsonpCallback&action=increment&english=${encodeURIComponent(word.en)}&japanese=${encodeURIComponent(word.jp)}`;
 
+      // Define the callback function globally
+      window.jsonpCallback = (data) => {
+        console.log("API Response (increment):", data);
+      };
 
+      // Dynamically add a <script> tag to call the JSONP API
+      const script = document.createElement("script");
+      script.src = url; // Set the API URL
+      script.async = true; // Load asynchronously
+      document.body.appendChild(script);
+
+      // Clean up the <script> tag after the request
+      script.onload = () => {
+        document.body.removeChild(script); // Remove the script tag
+      };
+    },
     exitFlashcards() {
       this.flashcardMode = false;
       this.currentGroup = null;
@@ -316,75 +363,7 @@ export default {
       this.shuffledWords = [];
     },
 
-    async writeToSheet() {
-      if (!this.accessToken) {
-        alert("Please authenticate first!");
-        return;
-      }
-
-      const range = "Sheet1!A1"; // Replace with your desired cell range
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.sheetId}/values/${range}?valueInputOption=USER_ENTERED`;
-
-      const data = {
-        range: range,
-        majorDimension: "ROWS",
-        values: [["Test data from Vue 3"]], // Replace with your data
-      };
-
-      try {
-        const response = await fetch(url, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${this.accessToken}`,
-          },
-          body: JSON.stringify(data),
-        });
-
-        if (response.ok) {
-          console.log("Data written successfully!");
-          alert("Data written to Google Sheet!");
-        } else {
-          const error = await response.json();
-          console.error("Error writing data:", error);
-          alert("Failed to write data. Check the console for details.");
-        }
-      } catch (error) {
-        console.error("Fetch error:", error);
-        alert("An error occurred while writing data.");
-      }
-    },
-    callApi() {
-      // Build the API URL with parameters
-      const baseUrl =
-        "https://script.google.com/macros/s/AKfycbybFZFfo5EGapKy7svTnx5_uQ6cov5ZlfEY5oV_qauaoFJ4lXJ5JdxBih_4jclJK-CWBQ/exec";
-      const url = `${baseUrl}?callback=jsonpCallback&target=${encodeURIComponent(
-        this.targetCell
-      )}&value=${encodeURIComponent(this.cellValue)}`;
-
-      // Define the callback function globally
-      window.jsonpCallback = (data) => {
-        console.log("API Response:", data);
-        this.responseMessage = JSON.stringify(data, null, 2); // Store the response
-      };
-
-      // Dynamically add a <script> tag to call the JSONP API
-      const script = document.createElement("script");
-      script.src = url; // Set the API URL
-      script.async = true; // Load asynchronously
-      document.body.appendChild(script);
-
-      // Clean up the <script> tag after the request
-      script.onload = () => {
-        document.body.removeChild(script); // Remove the script tag
-      };
-      script.onerror = () => {
-        console.error("JSONP request failed.");
-        this.responseMessage = "Error loading the API.";
-        document.body.removeChild(script);
-      };
-    },
-
+    
   },
   mounted() {
     console.clear()
@@ -413,12 +392,35 @@ html, body {
   flex-direction: column; /* Optional: Ensures children stack vertically */
 }
 
+.form-check-inline{
+  margin: auto .75rem !important;
+}
+
+.flex-container{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.flex-container span{
+  font-size: 1em;
+}
+
+.flex-container h3{
+  margin-bottom: unset !important;
+}
+
 .card-title{
   margin-bottom: unset !important;
 }
 
 .card-body{
   padding: 10px !important;
+}
+
+.card-body hr{
+  margin: .5em 0;
 }
 
 .flashcard{
