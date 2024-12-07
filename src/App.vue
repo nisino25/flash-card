@@ -198,7 +198,7 @@ export default {
                     jp: row[0],
                     en: row[1],
                     marked: row[4] == 1,
-                    example: row[6],
+                    example: row[7],
                 });
             }
         };
