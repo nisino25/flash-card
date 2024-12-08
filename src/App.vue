@@ -4,25 +4,26 @@
     <hr>
 
     <!-- toogle tool -->
-    <div v-if="groups.length > 0" class="mb-4 text-center">
+    <div v-if="groups.length > 0" class="mb-4 text-center toggle-container">
       <template v-if="!flashcardMode">
-        <div class="form-check form-check-inline">
+        <div class="form-check form-check-inline flag-container">
           <input
             type="radio"
             value="japanese"
             v-model="flashcardModeSetting"
             class="form-check-input"
           />
-          <label for="showJapanese" class="form-check-label">JA</label>
+          <label for="showJapanese" class="form-check-label flag">🇯🇵</label>
+          <!-- <label class="form-check-label" v-html="japaneseEmoji"></label> -->
         </div>
-        <div class="form-check form-check-inline">
+        <div class="form-check form-check-inline flag-container">
           <input
             type="radio"
             value="english"
             v-model="flashcardModeSetting"
             class="form-check-input"
           />
-          <label for="showEnglish" class="form-check-label">EN</label>
+          <label for="showEnglish" class="form-check-label flag">🇬🇧</label>
         </div>
         |
         <div class="form-check form-check-inline">
@@ -55,14 +56,14 @@
         :key="index"
         class="col-6"
       >
-        <div class="card shadow" @click="startFlashcards(group)" style="cursor: pointer;">
+        <div :style="{ backgroundColor: group.name === 'unchecked' ? 'LightSlateGray' : '' }" class="card shadow" @click="startFlashcards(group)" style="cursor: pointer;">
           <div class="card-body">
             <h5 class="card-title text-center">{{ group.name }}</h5>
             <hr>
             <section class="flex-container" style="width: 80%; margin: auto;">
               <small><i class="fa-solid fa-list"></i> <strong>{{ group.words.length }}</strong></small>
-              <small><i class="fa-solid fa-bookmark"></i> <strong>{{ group.words.filter(word => word.marked)?.length }}</strong></small>
-              <small><i class="fa-regular fa-clock"></i> <strong>{{ group.counter }}</strong></small>
+              <small v-if="group.name !== 'unchecked'"><i class="fa-solid fa-bookmark"></i> <strong>{{ group.words.filter(word => word.marked)?.length }}</strong></small>
+              <small v-if="group.name !== 'unchecked'"><i class="fa-regular fa-clock"></i> <strong>{{ group.counter }}</strong></small>
             </section>
           </div>
         </div>
@@ -141,6 +142,7 @@
 
 
 <script>
+import twemoji from "twemoji";
 
 export default {
   data() {
@@ -180,6 +182,12 @@ export default {
           words: group.words.filter(word => word.marked) // Include only marked words
         };
       }).filter(group => group.words.length > 0); // Remove groups with no marked words
+    },
+    japaneseEmoji() {
+      return twemoji.parse("🇯🇵"); // Japan flag emoji
+    },
+    englishEmoji() {
+      return twemoji.parse("🇺🇸"); // USA flag emoji
     },
   },
   methods: {
@@ -277,7 +285,7 @@ export default {
     },
 
     finishRound() {
-      if(this.isFirstRound){
+      if(this.isFirstRound && this.currentGroup.name !== 'unchecked'){
         this.currentGroup.counter++
         this.incrementWord({jp: this.currentGroup.name, en: 'groupName'})
       }
@@ -285,11 +293,7 @@ export default {
       // Filter flagged words from shuffledWords
       const flaggedWords = this.shuffledWords.filter(word => word.flag);
 
-      if (flaggedWords.length === 0) {
-        // Exit if no flagged words are left
-        
-        return this.exitFlashcards();
-      }
+      if (flaggedWords.length === 0) return this.exitFlashcards();
 
       // Shuffle the flagged words and reset state
       this.shuffledWords = this.shuffleArray(flaggedWords);
@@ -362,45 +366,68 @@ export default {
       this.showTranslation = false;
       this.shuffledWords = [];
     },
-
-    
   },
   mounted() {
     console.clear()
     this.fetchData();
-
-    // this.test()
-
-    // this.writingTest();
   },
+  watch: {
+    flashcardMode(newVal) {
+      const htmlBodyStyles = document.documentElement.style;
 
+      if (newVal) {
+        htmlBodyStyles.height = "100%";
+        htmlBodyStyles.margin = "0";
+        htmlBodyStyles.overflow = "hidden";
+      } else {
+        htmlBodyStyles.height = "";
+        htmlBodyStyles.margin = "";
+        htmlBodyStyles.overflow = "";
+      }
+    },
+  }
 };
 
 
 </script>
 
 <style>
-html, body {
-  height: 100%; /* Ensures html and body take the full height */
-  margin: 0; /* Removes default margin */
-  overflow: hidden; /* Prevents scrolling or overflow */
-}
-
 #app {
   height: 100vh; /* Ensures the app takes the full viewport height */
   display: flex; /* Optional: For centering or flex layouts */
   flex-direction: column; /* Optional: Ensures children stack vertically */
 }
 
+.toggle-container{
+  display: flex;
+  justify-content: space-around !important;
+  align-items: center;
+}
+
+.flag-container{
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  
+}
+
 .form-check-inline{
-  margin: auto .75rem !important;
+  margin-right: unset !important;
+}
+
+.flag{
+  font-size: 2em;
 }
 
 .flex-container{
   display: flex;
-  justify-content: space-between;
+  justify-content: space-around;
   align-items: center;
   margin-bottom: 10px;
+}
+
+.text-center{
+  justify-content: center;
 }
 
 .flex-container span{
