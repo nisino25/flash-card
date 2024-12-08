@@ -87,52 +87,93 @@
         <button class="ms-3 btn btn-danger" @click="exitFlashcards"><i class="fas fa-sign-out"></i></button>
       </div>
 
-      <!-- main word  -->
-      <div>
-        <div class="display-6 mb-6">
-          {{ flashcardModeSetting === 'english' ? currentWord.jp : (showTranslation ? currentWord.jp : '???') }}
+      <template v-if="currentGroup.name !== 'unchecked'">
+        <!-- main word  -->
+        <div>
+          <div class="display-6 mb-6">
+            {{ flashcardModeSetting === 'english' ? currentWord.jp : (showTranslation ? currentWord.jp : '???') }}
+          </div>
+          <div class="h5 mb-4">
+            {{ flashcardModeSetting === 'english' ? (showTranslation ? currentWord.en : '???') : currentWord.en }}
+          </div>
+          <div class="h6 mb-4 text-secondary" v-if="currentWord.example">
+            {{currentWord.example}}
+          </div>
         </div>
-        <div class="h5 mb-4">
-          {{ flashcardModeSetting === 'english' ? (showTranslation ? currentWord.en : '???') : currentWord.en }}
+  
+        <!-- buttons  -->
+        <div>
+          <button class="btn btn-primary me-2" @click="backWord" :disabled="currentWordIndex === 0">
+            <i class="fa-solid fa-left-long"></i>
+          </button>
+  
+          <button 
+            class="btn btn-secondary me-2" 
+            @click="showTranslation = !showTranslation"
+          >
+            <i :class="showTranslation ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
+          </button>
+  
+          <button 
+            class="btn btn-warning me-2" 
+            @click="toggleFlag(currentWord)"
+          >
+            <i :class="currentWord.flag ? 'fa-solid fa-flag' : 'fa-regular fa-flag'"></i>
+          </button>
+  
+          <button 
+            class="btn btn-warning me-2" 
+            @click="toggleMark(currentWord)"
+          >
+            <i :class="currentWord.marked ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark'"></i>
+          </button>
+  
+          <button v-if="currentWordIndex !== shuffledWords.length -1" class="btn btn-success me-2" @click="nextWord">
+            <i class="fa-solid fa-right-long"></i>
+          </button>
+         <button v-else class="btn btn-danger me-2" @click="finishRound">Finish</button>
+          
         </div>
-        <div class="h6 mb-4 text-secondary" v-if="currentWord.example">
-          {{currentWord.example}}
+      </template>
+
+      <template v-else>
+        <!-- main  -->
+        <div class="container py-4">
+          <div class="mb-3">
+            <label for="jpInput" class="form-label h5">🇯🇵</label>
+            <input
+              id="jpInput"
+              type="text"
+              class="form-control form-control-lg"
+              placeholder="Enter Japanese word"
+              v-model="currentWord.updatedJp"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="enInput" class="form-label h5">🇬🇧</label>
+            <input
+              id="enInput"
+              type="text"
+              class="form-control form-control-lg"
+              placeholder="Enter English word"
+              v-model="currentWord.updatedEn"
+            />
+          </div>
         </div>
-      </div>
 
-      <!-- buttons  -->
-      <div>
-        <button class="btn btn-primary me-2" @click="backWord" :disabled="currentWordIndex === 0">
-          <i class="fa-solid fa-left-long"></i>
-        </button>
-
-        <button 
-          class="btn btn-secondary me-2" 
-          @click="showTranslation = !showTranslation"
-        >
-          <i :class="showTranslation ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
-        </button>
-
-        <button 
-          class="btn btn-warning me-2" 
-          @click="toggleFlag(currentWord)"
-        >
-          <i :class="currentWord.flag ? 'fa-solid fa-flag' : 'fa-regular fa-flag'"></i>
-        </button>
-
-        <button 
-          class="btn btn-warning me-2" 
-          @click="toggleMark(currentWord)"
-        >
-          <i :class="currentWord.marked ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark'"></i>
-        </button>
-
-        <button v-if="currentWordIndex !== shuffledWords.length -1" class="btn btn-success me-2" @click="nextWord">
-          <i class="fa-solid fa-right-long"></i>
-        </button>
-       <button v-else class="btn btn-danger me-2" @click="finishRound">Finish</button>
-        
-      </div>
+  
+        <!-- buttons  -->
+        <div>
+          <button class="btn btn-danger me-2" @click="deleteRow">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+  
+          <button class="btn btn-success me-2" @click="finishChecking">
+            <i class="fa-solid fa-check"></i>
+          </button>
+          
+        </div>
+      </template>
     </div>
 
   </div>
@@ -150,6 +191,7 @@ export default {
       groups: [], // Stores processed group data
       apiKey: process.env.VUE_APP_API_KEY,
       sheetId: process.env.VUE_APP_SHEET_ID,
+
       flashcardMode: false, // Toggles flashcard mode
       currentGroup: null, // Current group in flashcard mode
       currentWordIndex: 0, // Index of the current word
@@ -164,7 +206,7 @@ export default {
 
       isFirstRound: false,
 
-      // https://script.google.com/macros/s/AKfycbybFZFfo5EGapKy7svTnx5_uQ6cov5ZlfEY5oV_qauaoFJ4lXJ5JdxBih_4jclJK-CWBQ/exec
+      baseUrl : 'https://script.google.com/macros/s/AKfycbyVC5mxcQKKp-ginJQVfwQmWgm72trkByTXdxxbs-dJF4c9WoCItBqHaGJT15_t-YGLyg/exec'
     };
   },
   computed: {
@@ -220,6 +262,9 @@ export default {
                     marked: row[4] == 1,
                     counter: row[6] || 0,
                     example: row[7],
+
+                    updatedJp: row[0],
+                    updatedEn: row[1],
                     
                 });
             }
@@ -293,6 +338,17 @@ export default {
       // Filter flagged words from shuffledWords
       const flaggedWords = this.shuffledWords.filter(word => word.flag);
 
+
+      if(this.currentGroup.name == 'unchecked'){
+        this.groups = []
+        this.exitFlashcards();
+        setTimeout(() => {
+          this.fetchData();
+        }, 1500); // 2000 milliseconds = 2 seconds
+        
+        return
+      }
+
       if (flaggedWords.length === 0) return this.exitFlashcards();
 
       // Shuffle the flagged words and reset state
@@ -306,9 +362,7 @@ export default {
       if (word.marked) this.toggleFlag(word)
 
       // Build the API URL with the action parameter for toggleMark
-      const baseUrl =
-        "https://script.google.com/macros/s/AKfycbyBcvDCo3fYslOGZeJLoDlL8TayF1YwBAyNPh-xpLp7YsBwF3dvlOUCjxSVO7hiFfTBSA/exec";
-      const url = `${baseUrl}?callback=jsonpCallback&action=toggleMark&english=${encodeURIComponent(
+      const url = `${this.baseUrl}?callback=jsonpCallback&action=toggleMark&english=${encodeURIComponent(
         word.en
       )}&japanese=${encodeURIComponent(word.jp)}`;
 
@@ -334,14 +388,69 @@ export default {
       if(!word.flag) return
       this.incrementWord(word)
     },
+    finishChecking(){
+
+      // Build the API URL with the action parameter for toggleMark
+      const restURL = `?callback=jsonpCallback&action=finishChecking&english=${encodeURIComponent(this.currentWord.en)}&japanese=${encodeURIComponent(this.currentWord.jp)}&updatedEnglish=${encodeURIComponent(this.currentWord.updatedEn)}&updatedJapanese=${encodeURIComponent(this.currentWord.updatedJp)}`
+      const url = `${this.baseUrl}${restURL}`; 
+
+      // Define the callback function globally
+      window.jsonpCallback = (data) => {
+        console.log("API Response (toggleMark):", data);
+      };
+
+      // Dynamically add a <script> tag to call the JSONP API
+      const script = document.createElement("script");
+      script.src = url; // Set the API URL
+      script.async = true; // Load asynchronously
+      document.body.appendChild(script);
+
+      // Clean up the <script> tag after the request
+      script.onload = () => {
+        document.body.removeChild(script); // Remove the script tag
+      };
+
+      if(this.currentWordIndex !== this.shuffledWords.length -1){
+        this.nextWord()
+      }else{
+        this.finishRound()
+      }
+    },
+
+    deleteRow(){
+      const isConfirmed = confirm("Are you sure you want to delete this item?");
+      if(!isConfirmed) return
+      // Build the API URL with the action parameter for toggleMark
+      const url = `${this.baseUrl}?callback=jsonpCallback&action=deleteRow&english=${encodeURIComponent(this.currentWord.en)}&japanese=${encodeURIComponent(this.currentWord.jp)}`; 
+
+      // Define the callback function globally
+      window.jsonpCallback = (data) => {
+        console.log("API Response (toggleMark):", data);
+      };
+
+      // Dynamically add a <script> tag to call the JSONP API
+      const script = document.createElement("script");
+      script.src = url; // Set the API URL
+      script.async = true; // Load asynchronously
+      document.body.appendChild(script);
+
+      // Clean up the <script> tag after the request
+      script.onload = () => {
+        document.body.removeChild(script); // Remove the script tag
+      };
+
+      if(this.currentWordIndex !== this.shuffledWords.length -1){
+        this.nextWord()
+      }else{
+        this.finishRound()
+      }
+    },
 
     incrementWord(word) {
       console.log(word);
       word.counter++
       // Build the API URL with the action parameter for increment
-      const baseUrl =
-        "https://script.google.com/macros/s/AKfycbyBcvDCo3fYslOGZeJLoDlL8TayF1YwBAyNPh-xpLp7YsBwF3dvlOUCjxSVO7hiFfTBSA/exec";
-      const url = `${baseUrl}?callback=jsonpCallback&action=increment&english=${encodeURIComponent(word.en)}&japanese=${encodeURIComponent(word.jp)}`;
+      const url = `${this.baseUrl}?callback=jsonpCallback&action=increment&english=${encodeURIComponent(word.en)}&japanese=${encodeURIComponent(word.jp)}`;
 
       // Define the callback function globally
       window.jsonpCallback = (data) => {
