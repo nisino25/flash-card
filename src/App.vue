@@ -72,7 +72,7 @@
 
 
     <div v-if="groups?.length == 0" class="text-center">
-      <p class="text-muted">No data loaded yet. Click the button to fetch data!</p>
+      <p class="text-muted">Loading data now!</p>
     </div>
 
     <!-- Flashcard View -->
@@ -81,15 +81,15 @@
         <span class="badge bg-warning text-dark p-2">
           <i class="fa-solid fa-flag"></i> x {{ currentWord.counter }}
         </span>
-        <h3 class="mb-4 text-primary">
-          {{ currentGroup.name }}: {{currentWordIndex+1}}/ {{ shuffledWords.length }} 
-        </h3>
+        <h4 class="mb-4 text-primary">
+          {{ currentGroup.name }}: {{currentWordIndex+1}} / {{ shuffledWords.length }} 
+        </h4>
         <button class="ms-3 btn btn-danger" @click="exitFlashcards"><i class="fas fa-sign-out"></i></button>
       </div>
 
       <template v-if="currentGroup.name !== 'unchecked'">
         <!-- main word  -->
-        <div>
+        <div style="background-color: lightgray;" class="rounded my-4 py-2" @click="showTranslation = !showTranslation">
           <div class="display-6 mb-6">
             {{ flashcardModeSetting === 'english' ? currentWord.jp : (showTranslation ? currentWord.jp : '???') }}
           </div>
@@ -109,9 +109,9 @@
   
           <button 
             class="btn btn-secondary me-2" 
-            @click="showTranslation = !showTranslation"
+            @click="editWord"
           >
-            <i :class="showTranslation ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
+            <i class="fa-solid fa-pen-to-square"></i>
           </button>
   
           <button 
@@ -136,6 +136,7 @@
         </div>
       </template>
 
+      <!-- editing page -->
       <template v-else>
         <!-- main  -->
         <div class="container py-4">
@@ -205,8 +206,9 @@ export default {
       responseMessage: "", // To store the API response
 
       isFirstRound: false,
+      hasEdited: false,
 
-      baseUrl : 'https://script.google.com/macros/s/AKfycbyVC5mxcQKKp-ginJQVfwQmWgm72trkByTXdxxbs-dJF4c9WoCItBqHaGJT15_t-YGLyg/exec'
+      baseUrl : 'https://script.google.com/macros/s/AKfycbxZPzvzooO8eYPwV729b20r7TCVs1iOkGTLuyqmoYvLksG3WnevxjicOUOJEH76trp2Lw/exec'
     };
   },
   computed: {
@@ -300,7 +302,8 @@ export default {
     },
 
     startFlashcards(group) {
-      this.isFirstRound = true
+      this.isFirstRound = true;
+      this.hasEdited = false;
       // Shuffle the group's words and store them in shuffledWords
       // this.shuffledWords = this.shuffleArray(group.words);
 
@@ -349,7 +352,18 @@ export default {
         return
       }
 
-      if (flaggedWords.length === 0) return this.exitFlashcards();
+      if (flaggedWords.length === 0) {
+        if(this.hasEdited){
+          this.groups = []
+          this.exitFlashcards();
+          setTimeout(() => {
+            this.fetchData();
+          }, 1500); // 2000 milliseconds = 2 seconds
+          
+          return
+        }
+        return this.exitFlashcards();
+      }
 
       // Shuffle the flagged words and reset state
       this.shuffledWords = this.shuffleArray(flaggedWords);
@@ -362,7 +376,7 @@ export default {
       if (word.marked) this.toggleFlag(word)
 
       // Build the API URL with the action parameter for toggleMark
-      const url = `${this.baseUrl}?callback=jsonpCallback&action=toggleMark&english=${encodeURIComponent(
+      const url = `${this.baseUrl}?callback=jsonpCallback&action=toggleCol&targetCol=5&english=${encodeURIComponent(
         word.en
       )}&japanese=${encodeURIComponent(word.jp)}`;
 
@@ -446,8 +460,41 @@ export default {
       }
     },
 
+    editWord(){
+      const isConfirmed = confirm("Do you want edit this word?");
+      if(!isConfirmed) return
+      
+      this.hasEdited = true;
+
+      this.currentWord.flag = false;
+      // this.currentWord.un = false;
+      // Build the API URL with the action parameter for toggleMark
+      const url = `${this.baseUrl}?callback=jsonpCallback&action=toggleCol&targetCol=6&english=${encodeURIComponent(this.currentWord.en)}&japanese=${encodeURIComponent(this.currentWord.jp)}`;
+
+      // Define the callback function globally
+      window.jsonpCallback = (data) => {
+        console.log("API Response (toggleMark):", data);
+      };
+
+      // Dynamically add a <script> tag to call the JSONP API
+      const script = document.createElement("script");
+      script.src = url; // Set the API URL
+      script.async = true; // Load asynchronously
+      document.body.appendChild(script);
+
+      // Clean up the <script> tag after the request
+      script.onload = () => {
+        document.body.removeChild(script); // Remove the script tag
+      };
+
+      if(this.currentWordIndex !== this.shuffledWords.length -1){
+        this.nextWord()
+      }else{
+        this.finishRound()
+      }
+    },
+
     incrementWord(word) {
-      console.log(word);
       word.counter++
       // Build the API URL with the action parameter for increment
       const url = `${this.baseUrl}?callback=jsonpCallback&action=increment&english=${encodeURIComponent(word.en)}&japanese=${encodeURIComponent(word.jp)}`;
@@ -543,7 +590,7 @@ export default {
   font-size: 1em;
 }
 
-.flex-container h3{
+.flex-container h4{
   margin-bottom: unset !important;
 }
 
